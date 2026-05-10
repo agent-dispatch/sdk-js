@@ -60,6 +60,21 @@ export interface McpToolTransport {
   callTool(toolName: string, input: Record<string, unknown>): Promise<unknown>;
 }
 
+export interface SpawnCloudAgentRequest {
+  instruction: string;
+  runtime?: string;
+  context?: Record<string, unknown>;
+  framework?: string;
+  runtimeTools?: Record<string, unknown>;
+  provider?: string;
+  accountProfile?: string;
+  target?: {
+    mode?: string;
+    details?: Record<string, unknown>;
+  };
+  metadata?: Record<string, unknown>;
+}
+
 export class AgentDispatchMcpClient {
   constructor(private readonly transport: McpToolTransport) {}
 
@@ -68,9 +83,24 @@ export class AgentDispatchMcpClient {
       provider: request.provider,
       account_profile: request.accountProfile,
       capability: request.capability,
+      backend: request.backend,
       task_type: request.taskType,
       target: request.target,
       input: request.input,
+      metadata: request.metadata
+    });
+  }
+
+  async spawnCloudAgent(request: SpawnCloudAgentRequest): Promise<TaskHandle> {
+    return this.call<TaskHandle>("spawn_cloud_agent", {
+      instruction: request.instruction,
+      runtime: request.runtime,
+      context: request.context,
+      framework: request.framework,
+      runtime_tools: request.runtimeTools,
+      provider: request.provider,
+      account_profile: request.accountProfile,
+      target: request.target,
       metadata: request.metadata
     });
   }

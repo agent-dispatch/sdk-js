@@ -106,6 +106,7 @@ describe("AgentDispatchMcpClient", () => {
         calls.push({ toolName, input });
         const responses: Record<string, unknown> = {
           dispatch_task: { taskId: "task_mcp", status: "provisioning", provider: "aws", accountProfile: "dev-aws" },
+          spawn_cloud_agent: { taskId: "task_spawn", status: "provisioning", provider: "aws", accountProfile: "dev-aws" },
           get_task_status: task,
           get_task_logs: { taskId: "task_mcp", cursor: 0, nextCursor: 5, data: "hello" },
           get_task_result: { taskId: "task_mcp", status: "succeeded", artifacts: [] },
@@ -121,6 +122,12 @@ describe("AgentDispatchMcpClient", () => {
     const client = new AgentDispatchMcpClient(transport);
 
     await expect(client.dispatchTask(request)).resolves.toMatchObject({ taskId: "task_mcp" });
+    await expect(client.spawnCloudAgent({
+      instruction: "research this",
+      runtime: "research-agent",
+      context: { repo: "agent-dispatch" },
+      runtimeTools: { enabled: ["web-search"] }
+    })).resolves.toMatchObject({ taskId: "task_spawn" });
     await expect(client.getTaskStatus("task_mcp")).resolves.toMatchObject({ status: "running" });
     await expect(client.getTaskLogs("task_mcp", 0, 128)).resolves.toMatchObject({ data: "hello" });
     await expect(client.getTaskResult("task_mcp")).resolves.toMatchObject({ status: "succeeded" });
@@ -130,6 +137,7 @@ describe("AgentDispatchMcpClient", () => {
     await expect(client.listAccountProfiles()).resolves.toHaveLength(1);
     expect(calls.map((call) => call.toolName)).toEqual([
       "dispatch_task",
+      "spawn_cloud_agent",
       "get_task_status",
       "get_task_logs",
       "get_task_result",
@@ -143,6 +151,12 @@ describe("AgentDispatchMcpClient", () => {
       account_profile: "dev-aws",
       capability: "agent-runtime",
       task_type: "agent.run"
+    });
+    expect(calls[1].input).toMatchObject({
+      instruction: "research this",
+      runtime: "research-agent",
+      context: { repo: "agent-dispatch" },
+      runtime_tools: { enabled: ["web-search"] }
     });
   });
 
