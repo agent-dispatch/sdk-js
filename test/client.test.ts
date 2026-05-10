@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { DispatchRequest, RuntimeService } from "@agentdispatch/core";
-import { AgentDispatchClient } from "../src/index.js";
+import type { DispatchRequest, TaskRecord } from "@agentdispatch/core";
+import { AgentDispatchClient, AgentDispatchMcpClient, type AgentDispatchRuntime, type McpToolTransport } from "../src/index.js";
 
 const request: DispatchRequest = {
   provider: "aws",
@@ -33,7 +33,20 @@ describe("AgentDispatchClient", () => {
       },
       getTaskStatus: async (taskId: string) => {
         calls.push(`status:${taskId}`);
-        return { id: taskId, status: "running" };
+        return {
+          id: taskId,
+          provider: "aws",
+          accountProfile: "dev-aws",
+          capability: "agent-runtime",
+          taskType: "agent.run",
+          target: { mode: "session" },
+          input: { instruction: "run a long task" },
+          backend: "aws-agentcore",
+          status: "running",
+          providerRefs: {},
+          createdAt: new Date(0).toISOString(),
+          updatedAt: new Date(0).toISOString()
+        };
       },
       getTaskLogs: async (taskId: string, cursor?: number, limit?: number) => {
         calls.push(`logs:${taskId}:${cursor}:${limit}`);
@@ -59,7 +72,7 @@ describe("AgentDispatchClient", () => {
         calls.push("accounts");
         return [{ name: "dev-aws", provider: "aws", credentialSource: "aws-sdk-default" }];
       }
-    } as unknown as RuntimeService;
+    } as AgentDispatchRuntime;
 
     const client = new AgentDispatchClient(runtime);
 
@@ -81,5 +94,63 @@ describe("AgentDispatchClient", () => {
       "capabilities:aws",
       "accounts"
     ]);
+  });
+});
+
+describe("AgentDispatchMcpClient", () => {
+  it("calls the provider-neutral MCP tools with stable snake_case inputs", async () => {
+    const calls: Array<{ toolName: string; input: Record<string, unknown> }> = [];
+    const task: Partial<TaskRecord> = { id: "task_mcp", status: "running" };
+    const transport: McpToolTransport = {
+      callTool: async (toolName, input) => {
+        calls.push({ toolName, input });
+        const responses: Record<string, unknown> = {
+          dispatch_task: { taskId: "task_mcp", status: "provisioning", provider: "aws", accountProfile: "dev-aws" },
+          get_task_status: task,
+          get_task_logs: { taskId: "task_mcp", cursor: 0, nextCursor: 5, data: "hello" },
+          get_task_result: { taskId: "task_mcp", status: "succeeded", artifacts: [] },
+          cancel_task: { status: "cancelled" },
+          list_providers: ["aws"],
+          list_capabilities: [{ adapter: "aws-agentcore", provider: "aws", capability: "agent-runtime", taskTypes: ["agent.run"], targetModes: ["session"] }],
+          list_account_profiles: [{ name: "dev-aws", provider: "aws", credentialSource: "aws-sdk-default" }]
+        };
+        return { content: [{ type: "text", text: JSON.stringify(responses[toolName]) }] };
+      }
+    };
+
+    const client = new AgentDispatchMcpClient(transport);
+
+    await expect(client.dispatchTask(request)).resolves.toMatchObject({ taskId: "task_mcp" });
+    await expect(client.getTaskStatus("task_mcp")).resolves.toMatchObject({ status: "running" });
+    await expect(client.getTaskLogs("task_mcp", 0, 128)).resolves.toMatchObject({ data: "hello" });
+    await expect(client.getTaskResult("task_mcp")).resolves.toMatchObject({ status: "succeeded" });
+    await expect(client.cancelTask("task_mcp")).resolves.toMatchObject({ status: "cancelled" });
+    await expect(client.listProviders()).resolves.toEqual(["aws"]);
+    await expect(client.listCapabilities("aws")).resolves.toHaveLength(1);
+    await expect(client.listAccountProfiles()).resolves.toHaveLength(1);
+    expect(calls.map((call) => call.toolName)).toEqual([
+      "dispatch_task",
+      "get_task_status",
+      "get_task_logs",
+      "get_task_result",
+      "cancel_task",
+      "list_providers",
+      "list_capabilities",
+      "list_account_profiles"
+    ]);
+    expect(calls[0].input).toMatchObject({
+      provider: "aws",
+      account_profile: "dev-aws",
+      capability: "agent-runtime",
+      task_type: "agent.run"
+    });
+  });
+
+  it("supports transports that return decoded JSON directly", async () => {
+    const client = new AgentDispatchMcpClient({
+      callTool: async () => ["aws", "gcp"]
+    });
+
+    await expect(client.listProviders()).resolves.toEqual(["aws", "gcp"]);
   });
 });
