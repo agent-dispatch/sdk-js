@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DispatchRequest, TaskRecord } from "@agentdispatch/core";
+import type { DispatchRequest, TaskRecord } from "@agent-dispatch/core";
 import { AgentDispatchClient, AgentDispatchMcpClient, type AgentDispatchRuntime, type McpToolTransport } from "../src/index.js";
 
 const request: DispatchRequest = {

@@ -7,7 +7,7 @@ import type {
   TaskHandle,
   TaskRecord,
   TaskResult
-} from "@agentdispatch/core";
+} from "@agent-dispatch/core";
 
 export interface AgentDispatchRuntime {
   dispatchTask(request: DispatchRequest): Promise<TaskHandle>;
