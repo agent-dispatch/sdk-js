@@ -167,4 +167,21 @@ describe("AgentDispatchMcpClient", () => {
 
     await expect(client.listProviders()).resolves.toEqual(["aws", "gcp"]);
   });
+
+  it("throws clear errors for MCP error and malformed text responses", async () => {
+    const errorClient = new AgentDispatchMcpClient({
+      callTool: async () => ({ content: [{ type: "text", text: "bad request" }], isError: true })
+    });
+    await expect(errorClient.listProviders()).rejects.toThrow("bad request");
+
+    const malformedClient = new AgentDispatchMcpClient({
+      callTool: async () => ({ content: [{ type: "text", text: "not json" }] })
+    });
+    await expect(malformedClient.listProviders()).rejects.toThrow("not valid JSON");
+
+    const emptyClient = new AgentDispatchMcpClient({
+      callTool: async () => ({ content: [{ type: "image", data: "..." }] })
+    });
+    await expect(emptyClient.listProviders()).rejects.toThrow("did not include text content");
+  });
 });
