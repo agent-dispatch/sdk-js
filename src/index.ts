@@ -145,9 +145,21 @@ function removeUndefinedValues(input: Record<string, unknown>): Record<string, u
 
 function decodeToolResult<Result>(result: unknown): Result {
   if (isTextContentResult(result)) {
-    const text = result.content.find((item) => item.type === "text")?.text;
-    if (typeof text === "string") {
+    const text = result.content
+      .filter((item) => item.type === "text" && typeof item.text === "string")
+      .map((item) => item.text)
+      .join("\n")
+      .trim();
+    if ((result as { isError?: unknown }).isError === true) {
+      throw new Error(text || "MCP tool call failed.");
+    }
+    if (!text) {
+      throw new Error("MCP tool response did not include text content.");
+    }
+    try {
       return JSON.parse(text) as Result;
+    } catch (error) {
+      throw new Error(`MCP tool response was not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   return result as Result;
