@@ -64,12 +64,15 @@ export interface SpawnCloudAgentRequest {
   instruction: string;
   runtime?: string;
   context?: Record<string, unknown>;
+  protocol?: string;
   framework?: string;
+  model?: string | Record<string, unknown>;
   runtimeTools?: Record<string, unknown>;
   provider?: string;
   accountProfile?: string;
   target?: {
     mode?: string;
+    protocol?: string;
     details?: Record<string, unknown>;
   };
   metadata?: Record<string, unknown>;
@@ -96,7 +99,9 @@ export class AgentDispatchMcpClient {
       instruction: request.instruction,
       runtime: request.runtime,
       context: request.context,
+      protocol: request.protocol,
       framework: request.framework,
+      model: request.model,
       runtime_tools: request.runtimeTools,
       provider: request.provider,
       account_profile: request.accountProfile,

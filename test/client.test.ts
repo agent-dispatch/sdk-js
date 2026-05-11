@@ -126,6 +126,8 @@ describe("AgentDispatchMcpClient", () => {
       instruction: "research this",
       runtime: "research-agent",
       context: { repo: "agent-dispatch" },
+      protocol: "a2a",
+      model: { provider: "bedrock", modelId: "anthropic.claude-3-5-sonnet" },
       runtimeTools: { enabled: ["web-search"] }
     })).resolves.toMatchObject({ taskId: "task_spawn" });
     await expect(client.getTaskStatus("task_mcp")).resolves.toMatchObject({ status: "running" });
@@ -156,6 +158,8 @@ describe("AgentDispatchMcpClient", () => {
       instruction: "research this",
       runtime: "research-agent",
       context: { repo: "agent-dispatch" },
+      protocol: "a2a",
+      model: { provider: "bedrock", modelId: "anthropic.claude-3-5-sonnet" },
       runtime_tools: { enabled: ["web-search"] }
     });
   });
