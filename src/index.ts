@@ -2,7 +2,6 @@ import type {
   AccountProfile,
   AdapterCapability,
   CancelResult,
-  CloudAgentInteraction,
   DispatchRequest,
   LogChunk,
   TaskHandle,
@@ -79,6 +78,19 @@ export class McpSdkToolTransport implements McpToolTransport {
 export interface AgentDispatchStdioClientOptions extends StdioServerParameters {
   clientName?: string;
   clientVersion?: string;
+}
+
+export interface CloudAgentInteraction {
+  protocol: string;
+  provider: string;
+  backend: string;
+  accountProfile: string;
+  sessionId?: string;
+  providerRefs?: Record<string, unknown>;
+  invocation?: Record<string, unknown>;
+  a2a?: Record<string, unknown>;
+  model?: unknown;
+  tools?: Record<string, unknown>;
 }
 
 export interface A2AMessagePart {
