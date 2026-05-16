@@ -2,6 +2,7 @@ import type {
   AccountProfile,
   AdapterCapability,
   CancelResult,
+  CloudAgentInteraction,
   DispatchRequest,
   LogChunk,
   TaskHandle,
@@ -79,6 +80,39 @@ export interface AgentDispatchStdioClientOptions extends StdioServerParameters {
   clientName?: string;
   clientVersion?: string;
 }
+
+export interface A2AMessagePart {
+  kind: "text" | (string & {});
+  text?: string;
+  [key: string]: unknown;
+}
+
+export interface CloudAgentA2AMessage {
+  id?: string;
+  role?: "user" | "agent" | (string & {});
+  text?: string;
+  parts?: A2AMessagePart[];
+  messageId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CloudAgentA2AHttpRequest {
+  url: string;
+  method: "POST";
+  headers: Record<string, string>;
+  body: string;
+  cloudAgent: CloudAgentInteraction;
+}
+
+export interface CloudAgentA2AResult {
+  raw: unknown;
+  text?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export type CloudAgentA2ATransport =
+  | ((request: CloudAgentA2AHttpRequest) => Promise<unknown>)
+  | { send(request: CloudAgentA2AHttpRequest): Promise<unknown> };
 
 export interface SpawnCloudAgentRequest {
   instruction: string;
@@ -194,6 +228,68 @@ export function connectAgentDispatchStdioClient(options: AgentDispatchStdioClien
   return AgentDispatchStdioClient.connect(options);
 }
 
+export function createA2AMessageSendPayload(message: CloudAgentA2AMessage): Record<string, unknown> {
+  const parts = message.parts ?? (message.text !== undefined ? [{ kind: "text", text: message.text }] : undefined);
+  if (!parts?.length) {
+    throw new Error("A2A follow-up requires message.text or message.parts.");
+  }
+
+  return {
+    jsonrpc: "2.0",
+    id: message.id ?? createClientId("a2a"),
+    method: "message/send",
+    params: {
+      message: {
+        role: message.role ?? "user",
+        parts,
+        messageId: message.messageId ?? createClientId("msg")
+      },
+      ...(message.metadata ? { metadata: message.metadata } : {})
+    }
+  };
+}
+
+export function createCloudAgentA2AHttpRequest(cloudAgent: CloudAgentInteraction, message: CloudAgentA2AMessage): CloudAgentA2AHttpRequest {
+  if (cloudAgent.protocol !== "a2a") {
+    throw new Error(`Cloud agent protocol is ${cloudAgent.protocol}, not a2a.`);
+  }
+  const url = stringValue(cloudAgent.a2a?.endpointUrl) ?? stringValue(cloudAgent.invocation?.runtimeUrl);
+  if (!url) {
+    throw new Error("Cloud agent A2A endpoint URL is missing.");
+  }
+  const sessionHeaderName = stringValue(cloudAgent.a2a?.sessionHeaderName) ?? stringValue(cloudAgent.invocation?.sessionHeaderName);
+  const sessionHeaderValue = stringValue(cloudAgent.a2a?.sessionHeaderValue) ?? stringValue(cloudAgent.invocation?.sessionHeaderValue);
+  const payload = createA2AMessageSendPayload(message);
+  const method = stringValue(cloudAgent.a2a?.messageMethod) ?? "message/send";
+  payload.method = method;
+
+  const headers: Record<string, string> = {
+    "content-type": stringValue(cloudAgent.invocation?.contentType) ?? "application/json",
+    accept: stringValue(cloudAgent.invocation?.accept) ?? "application/json"
+  };
+  if (sessionHeaderName && sessionHeaderValue) {
+    headers[sessionHeaderName] = sessionHeaderValue;
+  }
+
+  return {
+    url,
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+    cloudAgent
+  };
+}
+
+export async function sendCloudAgentA2AMessage(
+  cloudAgent: CloudAgentInteraction,
+  message: CloudAgentA2AMessage,
+  transport: CloudAgentA2ATransport
+): Promise<CloudAgentA2AResult> {
+  const request = createCloudAgentA2AHttpRequest(cloudAgent, message);
+  const raw = typeof transport === "function" ? await transport(request) : await transport.send(request);
+  return decodeA2AResult(raw);
+}
+
 function removeUndefinedValues(input: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
 }
@@ -227,4 +323,33 @@ function isTextContentResult(result: unknown): result is { content: Array<{ type
       "content" in result &&
       Array.isArray((result as { content?: unknown }).content)
   );
+}
+
+function decodeA2AResult(raw: unknown): CloudAgentA2AResult {
+  const candidate = isRecord(raw) && isRecord(raw.result) ? raw.result : raw;
+  const message = isRecord(candidate) && isRecord(candidate.message) ? candidate.message : candidate;
+  const parts = isRecord(message) && Array.isArray(message.parts) ? message.parts : [];
+  const text = parts
+    .filter(isRecord)
+    .map((part) => typeof part.text === "string" ? part.text : "")
+    .filter(Boolean)
+    .join("\n") || undefined;
+  const metadata = isRecord(message) && isRecord(message.metadata)
+    ? message.metadata
+    : isRecord(candidate) && isRecord(candidate.metadata)
+      ? candidate.metadata
+      : undefined;
+  return { raw, text, metadata };
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function createClientId(prefix: string): string {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }

@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { DispatchRequest, TaskRecord } from "@agent-dispatch/core";
-import { AgentDispatchClient, AgentDispatchMcpClient, AgentDispatchStdioClient, connectAgentDispatchStdioClient, type AgentDispatchRuntime, type McpToolTransport } from "../src/index.js";
+import {
+  AgentDispatchClient,
+  AgentDispatchMcpClient,
+  AgentDispatchStdioClient,
+  connectAgentDispatchStdioClient,
+  createA2AMessageSendPayload,
+  createCloudAgentA2AHttpRequest,
+  sendCloudAgentA2AMessage,
+  type AgentDispatchRuntime,
+  type McpToolTransport
+} from "../src/index.js";
 
 const request: DispatchRequest = {
   provider: "aws",
@@ -212,5 +222,99 @@ describe("AgentDispatchMcpClient", () => {
 
   it("exposes a helper for connecting stdio MCP servers", async () => {
     expect(typeof connectAgentDispatchStdioClient).toBe("function");
+  });
+});
+
+describe("cloud agent A2A helpers", () => {
+  const cloudAgent = {
+    protocol: "a2a",
+    provider: "aws",
+    backend: "aws-agentcore",
+    accountProfile: "dev-aws",
+    sessionId: "session_123",
+    invocation: {
+      type: "aws.agentcore.invoke_agent_runtime",
+      provider: "aws",
+      accountProfile: "dev-aws",
+      runtimeUrl: "https://bedrock-agentcore.us-west-2.amazonaws.com/runtimes/runtime/invocations/",
+      sessionHeaderName: "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id",
+      sessionHeaderValue: "session_123",
+      contentType: "application/json",
+      accept: "application/json"
+    },
+    a2a: {
+      transport: "json-rpc-2.0-http",
+      messageMethod: "message/send",
+      endpointUrl: "https://bedrock-agentcore.us-west-2.amazonaws.com/runtimes/runtime/invocations/",
+      sessionHeaderName: "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id",
+      sessionHeaderValue: "session_123"
+    }
+  } as const;
+
+  it("builds A2A message/send payloads", () => {
+    expect(createA2AMessageSendPayload({ id: "req-1", messageId: "msg-1", text: "continue" })).toEqual({
+      jsonrpc: "2.0",
+      id: "req-1",
+      method: "message/send",
+      params: {
+        message: {
+          role: "user",
+          parts: [{ kind: "text", text: "continue" }],
+          messageId: "msg-1"
+        }
+      }
+    });
+  });
+
+  it("builds cloud-agent A2A HTTP requests with AgentCore session headers", () => {
+    const request = createCloudAgentA2AHttpRequest(cloudAgent, {
+      id: "req-1",
+      messageId: "msg-1",
+      text: "continue",
+      metadata: { priority: "background" }
+    });
+
+    expect(request).toMatchObject({
+      url: "https://bedrock-agentcore.us-west-2.amazonaws.com/runtimes/runtime/invocations/",
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+        "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": "session_123"
+      }
+    });
+    expect(JSON.parse(request.body)).toMatchObject({
+      jsonrpc: "2.0",
+      method: "message/send",
+      params: {
+        metadata: { priority: "background" },
+        message: { parts: [{ kind: "text", text: "continue" }] }
+      }
+    });
+  });
+
+  it("sends A2A follow-up messages through an injected transport", async () => {
+    const calls: unknown[] = [];
+    const result = await sendCloudAgentA2AMessage(cloudAgent, { text: "next step" }, async (request) => {
+      calls.push(request);
+      return {
+        jsonrpc: "2.0",
+        id: "req-1",
+        result: {
+          kind: "message",
+          role: "agent",
+          parts: [{ kind: "text", text: "done" }],
+          metadata: { ok: true }
+        }
+      };
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(result).toMatchObject({ text: "done", metadata: { ok: true } });
+  });
+
+  it("rejects non-A2A cloud-agent metadata", () => {
+    expect(() => createCloudAgentA2AHttpRequest({ ...cloudAgent, protocol: "http" }, { text: "continue" }))
+      .toThrow("not a2a");
   });
 });

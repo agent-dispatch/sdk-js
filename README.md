@@ -44,6 +44,26 @@ await client.close();
 
 `context` is caller-defined metadata. AgentDispatch stores and forwards it; your runtime decides what to do with it. It is the right place for repo names, issue IDs, branch names, priority, user preferences, or other task-specific hints.
 
+## Continue with A2A
+
+When the runtime returns `cloudAgent.protocol === "a2a"`, the SDK can turn that handoff metadata into a JSON-RPC `message/send` follow-up request. For AWS AgentCore, pass the generated request through a SigV4/AWS SDK transport in your app or agent framework:
+
+```ts
+import { sendCloudAgentA2AMessage } from "@agent-dispatch/sdk";
+
+const response = await sendCloudAgentA2AMessage(
+  task.cloudAgent!,
+  { text: "Continue the investigation and focus on IAM findings." },
+  async (request) => {
+    // Sign and send `request.url`, `request.headers`, and `request.body`
+    // with your provider-specific client.
+    return signedAgentCoreFetch(request);
+  }
+);
+
+console.log(response.text);
+```
+
 If you already have an MCP transport in your agent framework, use `AgentDispatchMcpClient` directly:
 
 ```ts
