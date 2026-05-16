@@ -232,6 +232,9 @@ describe("cloud agent A2A helpers", () => {
     backend: "aws-agentcore",
     accountProfile: "dev-aws",
     sessionId: "session_123",
+    framework: "openclaw",
+    model: "claude-sonnet",
+    tools: { enabled: ["repo-search"] },
     invocation: {
       type: "aws.agentcore.invoke_agent_runtime",
       provider: "aws",
@@ -287,7 +290,12 @@ describe("cloud agent A2A helpers", () => {
       jsonrpc: "2.0",
       method: "message/send",
       params: {
-        metadata: { priority: "background" },
+        metadata: {
+          framework: "openclaw",
+          model: "claude-sonnet",
+          runtime_tools: { enabled: ["repo-search"] },
+          priority: "background"
+        },
         message: { parts: [{ kind: "text", text: "continue" }] }
       }
     });

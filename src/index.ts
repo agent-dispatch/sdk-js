@@ -89,6 +89,7 @@ export interface CloudAgentInteraction {
   providerRefs?: Record<string, unknown>;
   invocation?: Record<string, unknown>;
   a2a?: Record<string, unknown>;
+  framework?: string;
   model?: unknown;
   tools?: Record<string, unknown>;
 }
@@ -271,7 +272,7 @@ export function createCloudAgentA2AHttpRequest(cloudAgent: CloudAgentInteraction
   }
   const sessionHeaderName = stringValue(cloudAgent.a2a?.sessionHeaderName) ?? stringValue(cloudAgent.invocation?.sessionHeaderName);
   const sessionHeaderValue = stringValue(cloudAgent.a2a?.sessionHeaderValue) ?? stringValue(cloudAgent.invocation?.sessionHeaderValue);
-  const payload = createA2AMessageSendPayload(message);
+  const payload = createA2AMessageSendPayload(withCloudAgentA2AMetadata(cloudAgent, message));
   const method = stringValue(cloudAgent.a2a?.messageMethod) ?? "message/send";
   payload.method = method;
 
@@ -352,6 +353,15 @@ function decodeA2AResult(raw: unknown): CloudAgentA2AResult {
       ? candidate.metadata
       : undefined;
   return { raw, text, metadata };
+}
+
+function withCloudAgentA2AMetadata(cloudAgent: CloudAgentInteraction, message: CloudAgentA2AMessage): CloudAgentA2AMessage {
+  const defaults: Record<string, unknown> = {};
+  if (cloudAgent.framework) defaults.framework = cloudAgent.framework;
+  if (cloudAgent.model !== undefined) defaults.model = cloudAgent.model;
+  if (cloudAgent.tools) defaults.runtime_tools = cloudAgent.tools;
+  const metadata = { ...defaults, ...message.metadata };
+  return Object.keys(metadata).length > 0 ? { ...message, metadata } : message;
 }
 
 function stringValue(value: unknown): string | undefined {
