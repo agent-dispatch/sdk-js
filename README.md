@@ -44,6 +44,17 @@ await client.close();
 
 `context` is caller-defined metadata. AgentDispatch stores and forwards it; your runtime decides what to do with it. It is the right place for repo names, issue IDs, branch names, priority, user preferences, or other task-specific hints.
 
+If the MCP server asks for missing runtime information, retry with the requested fields directly on `spawnCloudAgent`:
+
+```ts
+await client.spawnCloudAgent({
+  instruction: "Run the repo analysis in the cloud.",
+  runtimeArn: "arn:aws:bedrock-agentcore:us-west-2:123456789012:runtime/research-agent"
+});
+```
+
+Runtime-provisioning mode can also pass `ecrImageUri`, `executionRoleArn`, and `environmentVariables`. These are provider-specific setup fields, but they stay optional and do not change the stable MCP tool contract.
+
 ## Continue with A2A
 
 When the runtime returns `cloudAgent.protocol === "a2a"`, the SDK can turn that handoff metadata into a JSON-RPC `message/send` follow-up request. For AWS AgentCore, pass the generated request through a SigV4/AWS SDK transport in your app or agent framework:

@@ -138,7 +138,11 @@ describe("AgentDispatchMcpClient", () => {
       context: { repo: "agent-dispatch" },
       protocol: "a2a",
       model: { provider: "bedrock", modelId: "anthropic.claude-3-5-sonnet" },
-      runtimeTools: { enabled: ["web-search"] }
+      runtimeTools: { enabled: ["web-search"] },
+      runtimeArn: "arn:aws:bedrock-agentcore:us-west-2:123456789012:runtime/research-agent",
+      ecrImageUri: "123456789012.dkr.ecr.us-west-2.amazonaws.com/research-agent:latest",
+      executionRoleArn: "arn:aws:iam::123456789012:role/agentcore-runtime",
+      environmentVariables: { AGENT_FRAMEWORK: "openclaw" }
     })).resolves.toMatchObject({ taskId: "task_spawn" });
     await expect(client.getTaskStatus("task_mcp")).resolves.toMatchObject({ status: "running" });
     await expect(client.getTaskLogs("task_mcp", 0, 128)).resolves.toMatchObject({ data: "hello" });
@@ -170,7 +174,11 @@ describe("AgentDispatchMcpClient", () => {
       context: { repo: "agent-dispatch" },
       protocol: "a2a",
       model: { provider: "bedrock", modelId: "anthropic.claude-3-5-sonnet" },
-      runtime_tools: { enabled: ["web-search"] }
+      runtime_tools: { enabled: ["web-search"] },
+      runtimeArn: "arn:aws:bedrock-agentcore:us-west-2:123456789012:runtime/research-agent",
+      ecrImageUri: "123456789012.dkr.ecr.us-west-2.amazonaws.com/research-agent:latest",
+      executionRoleArn: "arn:aws:iam::123456789012:role/agentcore-runtime",
+      environmentVariables: { AGENT_FRAMEWORK: "openclaw" }
     });
   });
 
@@ -180,6 +188,35 @@ describe("AgentDispatchMcpClient", () => {
     });
 
     await expect(client.listProviders()).resolves.toEqual(["aws", "gcp"]);
+  });
+
+  it("accepts MCP-native spawn aliases for clarification retries", async () => {
+    let forwarded: Record<string, unknown> | undefined;
+    const client = new AgentDispatchMcpClient({
+      callTool: async (toolName, input) => {
+        forwarded = input;
+        return { taskId: `task_${toolName}`, status: "provisioning" };
+      }
+    });
+
+    await client.spawnCloudAgent({
+      instruction: "continue after clarification",
+      account_profile: "dev-aws",
+      runtime_tools: { enabled: ["repo-search"] },
+      runtime_arn: "arn:aws:bedrock-agentcore:us-west-2:123456789012:runtime/clarified",
+      ecr_image_uri: "123456789012.dkr.ecr.us-west-2.amazonaws.com/agent:latest",
+      execution_role_arn: "arn:aws:iam::123456789012:role/agentcore-runtime",
+      environment_variables: { AGENT_FRAMEWORK: "hermes" }
+    });
+
+    expect(forwarded).toMatchObject({
+      account_profile: "dev-aws",
+      runtime_tools: { enabled: ["repo-search"] },
+      runtime_arn: "arn:aws:bedrock-agentcore:us-west-2:123456789012:runtime/clarified",
+      ecr_image_uri: "123456789012.dkr.ecr.us-west-2.amazonaws.com/agent:latest",
+      execution_role_arn: "arn:aws:iam::123456789012:role/agentcore-runtime",
+      environment_variables: { AGENT_FRAMEWORK: "hermes" }
+    });
   });
 
   it("throws clear errors for MCP error and malformed text responses", async () => {

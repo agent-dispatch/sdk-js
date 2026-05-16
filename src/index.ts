@@ -135,8 +135,18 @@ export interface SpawnCloudAgentRequest {
   framework?: string;
   model?: string | Record<string, unknown>;
   runtimeTools?: Record<string, unknown>;
+  runtime_tools?: Record<string, unknown>;
+  runtimeArn?: string;
+  runtime_arn?: string;
+  ecrImageUri?: string;
+  ecr_image_uri?: string;
+  executionRoleArn?: string;
+  execution_role_arn?: string;
+  environmentVariables?: Record<string, unknown>;
+  environment_variables?: Record<string, unknown>;
   provider?: string;
   accountProfile?: string;
+  account_profile?: string;
   target?: {
     mode?: string;
     protocol?: string;
@@ -169,9 +179,17 @@ export class AgentDispatchMcpClient {
       protocol: request.protocol,
       framework: request.framework,
       model: request.model,
-      runtime_tools: request.runtimeTools,
+      runtime_tools: request.runtimeTools ?? request.runtime_tools,
+      runtimeArn: request.runtimeArn,
+      runtime_arn: request.runtime_arn,
+      ecrImageUri: request.ecrImageUri,
+      ecr_image_uri: request.ecr_image_uri,
+      executionRoleArn: request.executionRoleArn,
+      execution_role_arn: request.execution_role_arn,
+      environmentVariables: request.environmentVariables,
+      environment_variables: request.environment_variables,
       provider: request.provider,
-      account_profile: request.accountProfile,
+      account_profile: request.accountProfile ?? request.account_profile,
       target: request.target,
       metadata: request.metadata
     });
