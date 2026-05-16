@@ -8,6 +8,8 @@ import type {
   TaskRecord,
   TaskResult
 } from "@agent-dispatch/core";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport, type StdioServerParameters } from "@modelcontextprotocol/sdk/client/stdio.js";
 
 export interface AgentDispatchRuntime {
   dispatchTask(request: DispatchRequest): Promise<TaskHandle>;
@@ -58,6 +60,24 @@ export class AgentDispatchClient {
 
 export interface McpToolTransport {
   callTool(toolName: string, input: Record<string, unknown>): Promise<unknown>;
+}
+
+interface McpSdkClient {
+  callTool(params: { name: string; arguments?: Record<string, unknown> }): Promise<unknown>;
+  close(): Promise<void>;
+}
+
+export class McpSdkToolTransport implements McpToolTransport {
+  constructor(private readonly client: McpSdkClient) {}
+
+  callTool(toolName: string, input: Record<string, unknown>): Promise<unknown> {
+    return this.client.callTool({ name: toolName, arguments: input });
+  }
+}
+
+export interface AgentDispatchStdioClientOptions extends StdioServerParameters {
+  clientName?: string;
+  clientVersion?: string;
 }
 
 export interface SpawnCloudAgentRequest {
@@ -142,6 +162,36 @@ export class AgentDispatchMcpClient {
     const result = await this.transport.callTool(toolName, removeUndefinedValues(input));
     return decodeToolResult<Result>(result);
   }
+}
+
+export class AgentDispatchStdioClient extends AgentDispatchMcpClient {
+  private constructor(private readonly mcpClient: Client, transport: McpSdkToolTransport) {
+    super(transport);
+  }
+
+  static async connect(options: AgentDispatchStdioClientOptions): Promise<AgentDispatchStdioClient> {
+    const transport = new StdioClientTransport({
+      command: options.command,
+      args: options.args,
+      env: options.env,
+      cwd: options.cwd,
+      stderr: options.stderr
+    });
+    const mcpClient = new Client({
+      name: options.clientName ?? "agentdispatch-sdk",
+      version: options.clientVersion ?? "0.1.0"
+    });
+    await mcpClient.connect(transport);
+    return new AgentDispatchStdioClient(mcpClient, new McpSdkToolTransport(mcpClient));
+  }
+
+  close(): Promise<void> {
+    return this.mcpClient.close();
+  }
+}
+
+export function connectAgentDispatchStdioClient(options: AgentDispatchStdioClientOptions): Promise<AgentDispatchStdioClient> {
+  return AgentDispatchStdioClient.connect(options);
 }
 
 function removeUndefinedValues(input: Record<string, unknown>): Record<string, unknown> {

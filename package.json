@@ -1,6 +1,6 @@
 {
   "name": "@agent-dispatch/sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "TypeScript SDK for AgentDispatch.",
   "type": "module",
   "license": "Apache-2.0",
@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "@agent-dispatch/core": "^0.1.0",
+    "@types/node": "^22.19.19",
     "tsup": "^8.3.5",
     "typescript": "^5.7.3",
     "vitest": "^2.1.8"
@@ -39,5 +40,8 @@
   "homepage": "https://github.com/agent-dispatch/sdk-js#readme",
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
   }
 }

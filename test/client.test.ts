@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DispatchRequest, TaskRecord } from "@agent-dispatch/core";
-import { AgentDispatchClient, AgentDispatchMcpClient, type AgentDispatchRuntime, type McpToolTransport } from "../src/index.js";
+import { AgentDispatchClient, AgentDispatchMcpClient, AgentDispatchStdioClient, connectAgentDispatchStdioClient, type AgentDispatchRuntime, type McpToolTransport } from "../src/index.js";
 
 const request: DispatchRequest = {
   provider: "aws",
@@ -187,5 +187,30 @@ describe("AgentDispatchMcpClient", () => {
       callTool: async () => ({ content: [{ type: "image", data: "..." }] })
     });
     await expect(emptyClient.listProviders()).rejects.toThrow("did not include text content");
+  });
+
+  it("can launch and call an MCP server over stdio", async () => {
+    const client = await AgentDispatchStdioClient.connect({
+      command: process.execPath,
+      args: [new URL("fixtures/stdio-server.mjs", import.meta.url).pathname],
+      stderr: "pipe"
+    });
+
+    try {
+      await expect(client.spawnCloudAgent({
+        instruction: "run through stdio",
+        context: { repo: "agent-dispatch" }
+      })).resolves.toMatchObject({
+        taskId: "task_stdio",
+        cloudAgent: { protocol: "a2a", sessionId: "session_stdio" }
+      });
+      await expect(client.getTaskStatus("task_stdio")).resolves.toMatchObject({ status: "succeeded" });
+    } finally {
+      await client.close();
+    }
+  });
+
+  it("exposes a helper for connecting stdio MCP servers", async () => {
+    expect(typeof connectAgentDispatchStdioClient).toBe("function");
   });
 });

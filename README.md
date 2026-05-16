@@ -21,34 +21,36 @@ npm install @agent-dispatch/sdk
 ## Spawn a cloud agent
 
 ```ts
-import { AgentDispatchClient } from "@agent-dispatch/sdk";
+import { AgentDispatchStdioClient } from "@agent-dispatch/sdk";
 
-const client = new AgentDispatchClient({
+const client = await AgentDispatchStdioClient.connect({
   command: "npx",
-  args: ["@agent-dispatch/mcp-server", "--config", "/absolute/path/agentdispatch.config.json"]
+  args: ["agentdispatch-mcp", "--config", "/absolute/path/agentdispatch.config.json"]
 });
 
 const task = await client.spawnCloudAgent({
-  provider: "aws",
-  accountProfile: "dev-aws",
-  capability: "agent-runtime",
-  taskType: "agent.run",
+  instruction: "Run a long-running repo analysis task.",
   protocol: "a2a",
-  target: { mode: "session" },
-  input: {
-    instruction: "Run a long-running repo analysis task.",
-    context: {
-      repo: "agent-dispatch",
-      priority: "background"
-    }
+  context: {
+    repo: "agent-dispatch",
+    priority: "background"
   }
 });
 
 console.log(task.taskId);
 console.log(task.cloudAgent);
+await client.close();
 ```
 
 `context` is caller-defined metadata. AgentDispatch stores and forwards it; your runtime decides what to do with it. It is the right place for repo names, issue IDs, branch names, priority, user preferences, or other task-specific hints.
+
+If you already have an MCP transport in your agent framework, use `AgentDispatchMcpClient` directly:
+
+```ts
+import { AgentDispatchMcpClient } from "@agent-dispatch/sdk";
+
+const client = new AgentDispatchMcpClient(existingTransport);
+```
 
 ## Poll for completion
 
