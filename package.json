@@ -1,6 +1,6 @@
 {
   "name": "@agent-dispatch/sdk",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "TypeScript SDK for AgentDispatch.",
   "type": "module",
   "license": "Apache-2.0",

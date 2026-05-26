@@ -123,6 +123,40 @@ export interface CloudAgentA2AResult {
   metadata?: Record<string, unknown>;
 }
 
+export interface CloudAgentRuntimeCheckRequest {
+  runtime?: string;
+  provider?: string;
+  accountProfile?: string;
+  account_profile?: string;
+  live?: boolean;
+  runtimeArn?: string;
+  runtime_arn?: string;
+  target?: {
+    mode?: string;
+    protocol?: string;
+    details?: Record<string, unknown>;
+  };
+}
+
+export interface CloudAgentRuntimeCheck {
+  name: string;
+  status: "pass" | "warn" | "fail";
+  message: string;
+}
+
+export interface CloudAgentRuntimeCheckResult {
+  ok: boolean;
+  runtime?: string;
+  provider?: string;
+  accountProfile?: string;
+  account_profile?: string;
+  backend?: string;
+  adapter?: string;
+  targetMode?: string;
+  target_mode?: string;
+  checks: CloudAgentRuntimeCheck[];
+}
+
 export type CloudAgentA2ATransport =
   | ((request: CloudAgentA2AHttpRequest) => Promise<unknown>)
   | { send(request: CloudAgentA2AHttpRequest): Promise<unknown> };
@@ -192,6 +226,18 @@ export class AgentDispatchMcpClient {
       account_profile: request.accountProfile ?? request.account_profile,
       target: request.target,
       metadata: request.metadata
+    });
+  }
+
+  async checkCloudAgentRuntime(request: CloudAgentRuntimeCheckRequest = {}): Promise<CloudAgentRuntimeCheckResult> {
+    return this.call<CloudAgentRuntimeCheckResult>("check_cloud_agent_runtime", {
+      runtime: request.runtime,
+      provider: request.provider,
+      account_profile: request.accountProfile ?? request.account_profile,
+      live: request.live,
+      runtimeArn: request.runtimeArn,
+      runtime_arn: request.runtime_arn,
+      target: request.target
     });
   }
 

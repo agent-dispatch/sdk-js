@@ -117,6 +117,15 @@ describe("AgentDispatchMcpClient", () => {
         const responses: Record<string, unknown> = {
           dispatch_task: { taskId: "task_mcp", status: "provisioning", provider: "aws", accountProfile: "dev-aws" },
           spawn_cloud_agent: { taskId: "task_spawn", status: "provisioning", provider: "aws", accountProfile: "dev-aws" },
+          check_cloud_agent_runtime: {
+            ok: true,
+            runtime: "research-agent",
+            provider: "aws",
+            accountProfile: "dev-aws",
+            backend: "aws-agentcore",
+            targetMode: "session",
+            checks: [{ name: "aws.research-agent.runtime", status: "pass", message: "runtime reachable" }]
+          },
           get_task_status: task,
           get_task_logs: { taskId: "task_mcp", cursor: 0, nextCursor: 5, data: "hello" },
           get_task_result: { taskId: "task_mcp", status: "succeeded", artifacts: [] },
@@ -144,6 +153,12 @@ describe("AgentDispatchMcpClient", () => {
       executionRoleArn: "arn:aws:iam::123456789012:role/agentcore-runtime",
       environmentVariables: { AGENT_FRAMEWORK: "openclaw" }
     })).resolves.toMatchObject({ taskId: "task_spawn" });
+    await expect(client.checkCloudAgentRuntime({
+      runtime: "research-agent",
+      runtimeArn: "arn:aws:bedrock-agentcore:us-west-2:123456789012:runtime/research-agent",
+      live: true,
+      target: { mode: "session", protocol: "a2a" }
+    })).resolves.toMatchObject({ ok: true, backend: "aws-agentcore" });
     await expect(client.getTaskStatus("task_mcp")).resolves.toMatchObject({ status: "running" });
     await expect(client.getTaskLogs("task_mcp", 0, 128)).resolves.toMatchObject({ data: "hello" });
     await expect(client.getTaskResult("task_mcp")).resolves.toMatchObject({ status: "succeeded" });
@@ -154,6 +169,7 @@ describe("AgentDispatchMcpClient", () => {
     expect(calls.map((call) => call.toolName)).toEqual([
       "dispatch_task",
       "spawn_cloud_agent",
+      "check_cloud_agent_runtime",
       "get_task_status",
       "get_task_logs",
       "get_task_result",
@@ -180,6 +196,12 @@ describe("AgentDispatchMcpClient", () => {
       executionRoleArn: "arn:aws:iam::123456789012:role/agentcore-runtime",
       environmentVariables: { AGENT_FRAMEWORK: "openclaw" }
     });
+    expect(calls[2].input).toMatchObject({
+      runtime: "research-agent",
+      live: true,
+      runtimeArn: "arn:aws:bedrock-agentcore:us-west-2:123456789012:runtime/research-agent",
+      target: { mode: "session", protocol: "a2a" }
+    });
   });
 
   it("supports transports that return decoded JSON directly", async () => {
@@ -188,6 +210,30 @@ describe("AgentDispatchMcpClient", () => {
     });
 
     await expect(client.listProviders()).resolves.toEqual(["aws", "gcp"]);
+  });
+
+  it("accepts MCP-native runtime check aliases", async () => {
+    let forwarded: Record<string, unknown> | undefined;
+    const client = new AgentDispatchMcpClient({
+      callTool: async (_toolName, input) => {
+        forwarded = input;
+        return { ok: true, checks: [] };
+      }
+    });
+
+    await client.checkCloudAgentRuntime({
+      provider: "aws",
+      account_profile: "dev-aws",
+      runtime_arn: "arn:aws:bedrock-agentcore:us-west-2:123456789012:runtime/alias",
+      target: { mode: "session" }
+    });
+
+    expect(forwarded).toMatchObject({
+      provider: "aws",
+      account_profile: "dev-aws",
+      runtime_arn: "arn:aws:bedrock-agentcore:us-west-2:123456789012:runtime/alias",
+      target: { mode: "session" }
+    });
   });
 
   it("accepts MCP-native spawn aliases for clarification retries", async () => {

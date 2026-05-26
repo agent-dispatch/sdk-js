@@ -8,7 +8,7 @@ JavaScript and TypeScript SDK for AgentDispatch. Use it to call the MCP server f
 ## What it does
 
 - Wraps the provider-neutral AgentDispatch MCP tools.
-- Provides typed requests for `spawn_cloud_agent`, `dispatch_task`, polling, logs, results, and cancellation.
+- Provides typed requests for `check_cloud_agent_runtime`, `spawn_cloud_agent`, `dispatch_task`, polling, logs, results, and cancellation.
 - Preserves provider-neutral inputs so future adapters do not require SDK API churn.
 - Returns cloud-agent metadata for A2A, MCP, AG-UI, or HTTP interaction after spawn.
 
@@ -27,6 +27,14 @@ const client = await AgentDispatchStdioClient.connect({
   command: "npx",
   args: ["agentdispatch-mcp", "--config", "/absolute/path/agentdispatch.config.json"]
 });
+
+const readiness = await client.checkCloudAgentRuntime({
+  runtime: "research-agent",
+  live: true
+});
+if (!readiness.ok) {
+  throw new Error(`Cloud agent runtime is not ready: ${JSON.stringify(readiness.checks)}`);
+}
 
 const task = await client.spawnCloudAgent({
   instruction: "Run a long-running repo analysis task.",
