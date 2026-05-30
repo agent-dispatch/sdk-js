@@ -2,6 +2,16 @@
   "name": "@agent-dispatch/sdk",
   "version": "0.1.5",
   "description": "TypeScript SDK for AgentDispatch.",
+  "keywords": [
+    "agentdispatch",
+    "sdk",
+    "typescript",
+    "mcp",
+    "model-context-protocol",
+    "cloud-agents",
+    "subagents",
+    "agent-orchestration"
+  ],
   "type": "module",
   "license": "Apache-2.0",
   "exports": {
