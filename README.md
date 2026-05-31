@@ -1,6 +1,7 @@
 # @agent-dispatch/sdk
 
 [![npm](https://img.shields.io/npm/v/@agent-dispatch/sdk.svg)](https://www.npmjs.com/package/@agent-dispatch/sdk)
+[![CI](https://github.com/agent-dispatch/sdk-js/actions/workflows/ci.yml/badge.svg)](https://github.com/agent-dispatch/sdk-js/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/@agent-dispatch/sdk.svg)](https://www.npmjs.com/package/@agent-dispatch/sdk)
 
 JavaScript and TypeScript SDK for AgentDispatch. Use it to call the MCP server from applications, scripts, CLIs, or agent frameworks that want to spawn cloud subagents programmatically.
