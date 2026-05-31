@@ -25,7 +25,7 @@ import { AgentDispatchStdioClient } from "@agent-dispatch/sdk";
 
 const client = await AgentDispatchStdioClient.connect({
   command: "npx",
-  args: ["agentdispatch-mcp", "--config", "/absolute/path/agentdispatch.config.json"]
+  args: ["-y", "@agent-dispatch/mcp-server", "--config", "/absolute/path/agentdispatch.config.json"]
 });
 
 const readiness = await client.checkCloudAgentRuntime({
